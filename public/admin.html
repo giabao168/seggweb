@@ -23,9 +23,43 @@
 </head>
 <body>
     <div id="root"></div>
-
+    <script id="game-components" src="GameComponents.js"></script>
     <script type="text/babel">
         const { useState, useEffect } = React;
+
+        // Wait for GameComponents to load with retry logic (same as index.html)
+        window.GameComponentsReady = false;
+        const waitForGameComponents = (maxRetries = 50, interval = 100) => {
+            return new Promise((resolve) => {
+                let retries = 0;
+                const checkComponents = () => {
+                    if (window.MCQGame || window.GameComponents) {
+                        window.GameComponentsReady = true;
+                        console.log('✅ GameComponents ready for admin');
+                        resolve(true);
+                    } else if (retries < maxRetries) {
+                        retries++;
+                        setTimeout(checkComponents, interval);
+                    } else {
+                        console.warn('⚠️ GameComponents not loaded');
+                        resolve(false);
+                    }
+                };
+                checkComponents();
+            });
+        };
+        
+        if (document.getElementById('game-components')) {
+            document.getElementById('game-components').onload = () => {
+                console.log('📦 GameComponents.js script loaded');
+            };
+            document.getElementById('game-components').onerror = (e) => {
+                console.error('❌ Error loading GameComponents:', e);
+            };
+        }
+        
+        // Start waiting
+        waitForGameComponents();
 
         // --- ADMIN LOGIN ---
         const AdminLogin = ({ onLogin }) => {
@@ -43,7 +77,7 @@
                     const data = await res.json();
                     if (data.success) {
                         if (data.user.role !== 'admin') { setError("Không có quyền Admin."); return; }
-                        onLogin(data.user);
+                        onLogin({ user: data.user, token: data.token });
                     } else setError(data.message);
                 } catch (e) { setError("Lỗi kết nối server"); }
             };
@@ -76,22 +110,37 @@
             }, []);
 
             const fetchData = () => {
-                fetch('/api/admin/users')
+                const token = user?.token || localStorage.getItem('vibe_admin_token');
+                const authHeaders = token ? {'Authorization': `Bearer ${token}`} : {};
+                
+                fetch('/api/admin/users', {
+                    headers: {'Content-Type': 'application/json', ...authHeaders}
+                })
                     .then(r => r.json())
-                    .then(d => d.success && setUsers(d.users))
+                    .then(d => {
+                        console.log('[ADMIN USERS RESPONSE]', d);
+                        d.success && setUsers(d.users);
+                    })
                     .catch(e => console.error("Lỗi fetch users:", e));
 
-                fetch('/api/admin/all-logs')
+                fetch('/api/admin/all-logs', {
+                    headers: {'Content-Type': 'application/json', ...authHeaders}
+                })
                     .then(r => r.json())
-                    .then(d => d.success && setLogs(d.logs))
+                    .then(d => {
+                        console.log('[ADMIN LOGS RESPONSE]', d);
+                        d.success && setLogs(d.logs);
+                    })
                     .catch(e => console.error("Lỗi fetch logs:", e));
             }
             
             const togglePremium = async (userId, current) => {
                 if(!confirm(`Xác nhận ${!current ? 'NÂNG' : 'HỦY'} gói Premium?`)) return;
+                const token = user?.token || localStorage.getItem('vibe_admin_token');
+                const authHeaders = token ? {'Authorization': `Bearer ${token}`} : {};
                 const res = await fetch('/api/admin/toggle-premium', { 
                     method: 'POST', 
-                    headers: {'Content-Type': 'application/json'}, 
+                    headers: {'Content-Type': 'application/json', ...authHeaders}, 
                     body: JSON.stringify({ targetUserId: userId, status: !current }) 
                 });
                 if((await res.json()).success) { fetchData(); alert("Cập nhật thành công!"); }
@@ -100,15 +149,12 @@
             // Hàm xóa game từ phía Admin
             const deleteGameAdmin = async (gameId) => {
                 if(!confirm("Admin: Bạn chắc chắn muốn xóa game này vĩnh viễn?")) return;
+                const token = user?.token || localStorage.getItem('vibe_admin_token');
+                const authHeaders = token ? {'Authorization': `Bearer ${token}`} : {};
                 const res = await fetch('/api/game/delete', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ userId: user.id, gameId }) // userId của admin, server không check chủ sở hữu nếu là admin (cần logic server hỗ trợ hoặc admin chỉ xóa view)
-                    // Lưu ý: Logic server hiện tại check 'userId' trong log. Nếu admin muốn xóa, cần sửa server để bypass check userId nếu role admin.
-                    // Tuy nhiên với code server hiện tại, admin chỉ xóa được game CỦA MÌNH.
-                    // Để admin xóa game của người khác, ta cần sửa API server (đã sửa ở trên để admin xóa view).
+                    method: 'POST', headers: {'Content-Type': 'application/json', ...authHeaders},
+                    body: JSON.stringify({ userId: user.user?.id || user.id, gameId })
                 });
-                // Tạm thời chỉ gọi API, nếu server chưa hỗ trợ admin xóa all thì có thể lỗi. 
-                // Nhưng ở đây ta cứ hiển thị danh sách đã.
                 alert("Tính năng xóa game của người khác đang được cập nhật ở Backend.");
             };
 
@@ -118,7 +164,7 @@
                         <header className="flex justify-between items-center mb-8 glass-panel p-6 rounded-xl border-l-4 border-red-500">
                             <div>
                                 <h2 className="text-3xl font-bold text-white uppercase tracking-widest"><i className="fa-solid fa-shield-cat mr-3 text-red-500"></i>Admin Control</h2>
-                                <p className="text-sm text-slate-400 mt-1">Xin chào, <span className="text-white font-bold">{user.username}</span></p>
+                                <p className="text-sm text-slate-400 mt-1">Xin chào, <span className="text-white font-bold">{user.user?.username || user.username}</span></p>
                             </div>
                             <button onClick={onLogout} className="px-5 py-2 bg-slate-800 hover:bg-red-900/50 hover:text-red-400 rounded-lg font-bold text-sm text-slate-300 transition border border-slate-700">
                                 <i className="fa-solid fa-right-from-bracket mr-2"></i>Đăng xuất
@@ -195,22 +241,22 @@
         function App() {
             const [user, setUser] = useState(null);
             
-            useEffect(() => {
+            useEffect(() => { 
                 const savedUser = localStorage.getItem('vibe_admin');
                 if (savedUser) setUser(JSON.parse(savedUser));
             }, []);
 
-            const handleLogin = (u) => { 
-                setUser(u); 
-                localStorage.setItem('vibe_admin', JSON.stringify(u)); 
+            const handleLogin = (authData) => { 
+                setUser(authData);
+                localStorage.setItem('vibe_admin', JSON.stringify(authData));
+                localStorage.setItem('vibe_admin_token', authData.token);
             };
             
             const handleLogout = () => { 
                 setUser(null); 
-                localStorage.removeItem('vibe_admin'); 
-            };
-
-            if (!user) return <AdminLogin onLogin={handleLogin} />;
+                localStorage.removeItem('vibe_admin');
+                localStorage.removeItem('vibe_admin_token');
+            };            if (!user) return <AdminLogin onLogin={handleLogin} />;
             return <AdminDashboard user={user} onLogout={handleLogout} />;
         }
         ReactDOM.createRoot(document.getElementById('root')).render(<App />);

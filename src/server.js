@@ -401,6 +401,7 @@ app.get('/api/admin/all-logs', authenticateToken, isAdmin, (req, res) => {
             ...l,
             creatorName: db.users.find(u => u.id === l.userId)?.username || "Unknown"
         }));
+        console.log('[ADMIN LOGS]', `Returning ${logs.length} logs`);
         res.json({ success: true, logs });
     } catch (err) {
         console.error('[ADMIN GET LOGS ERROR]:', err.message);
@@ -454,13 +455,17 @@ app.post('/api/generate', authenticateToken, upload.single('file'), async (req, 
             modeInstruction = `Tạo 50% câu đúng, 50% câu sai. Câu sai cần sửa đổi chi tiết nhỏ, tinh tế để gây nhiễu.
 JSON Format: [{ "statement": "...", "is_correct": true/false, "explanation": "..." }]`;
         } else if (mode === "multiple_choice") {
-            modeInstruction = "Đáp án đúng phân bố ngẫu nhiên (A, B, C, D). Đáp án nhiễu phải hợp lý.";
+            modeInstruction = `Đáp án đúng phân bố ngẫu nhiên (A, B, C, D). Đáp án nhiễu phải hợp lý.
+JSON Format: [{ "question": "...", "options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "answer": "A", "explanation": "..." }]`;
         } else if (mode === "fill_blank") {
-            modeInstruction = "Ẩn từ khóa quan trọng (danh từ/động từ/thuật ngữ), không ẩn từ hư từ. Thay bằng [BLANK].";
+            modeInstruction = `Ẩn từ khóa quan trọng (danh từ/động từ/thuật ngữ), không ẩn từ hư từ. Thay bằng [BLANK].
+JSON Format: [{ "sentence_with_blank": "Năm ... thành lập nước Việt Nam.", "hidden_word": "1945", "explanation": "..." }]`;
         } else if (mode === "qa") {
-            modeInstruction = "Câu hỏi tư duy, kèm gợi ý trả lời chi tiết và các ý chính cần có.";
+            modeInstruction = `Câu hỏi tư duy, kèm gợi ý trả lời chi tiết và các ý chính cần có.
+JSON Format: [{ "question": "...", "suggested_answer": "...", "key_points": ["...", "...", "..."], "explanation": "..." }]`;
         } else if (mode === "flashcard") {
-            modeInstruction = "Tạo thẻ học tập với 'front' (thuật ngữ/khái niệm) và 'back' (định nghĩa/giải thích chi tiết).";
+            modeInstruction = `Tạo thẻ học tập với 'front' (thuật ngữ/khái niệm) và 'back' (định nghĩa/giải thích chi tiết).
+JSON Format: [{ "front": "...", "back": "..." }]`;
         }
 
         const prompt = `

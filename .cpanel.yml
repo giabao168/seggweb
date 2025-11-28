@@ -1,0 +1,9 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/techitoan/public_html/app
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -r $REPO_ROOT/* $DEPLOYPATH/
+    - cd $DEPLOYPATH
+    - /usr/local/bin/node-script install
+    - /usr/local/bin/npm install --production

@@ -1,3 +1,15 @@
+// Wait for React to be available
+if (typeof React === 'undefined') {
+    console.error('❌ CRITICAL: React not available when GameComponents.js loaded!');
+    throw new Error('React is required for GameComponents.js');
+}
+
+if (typeof useState === 'undefined' && !React.useState) {
+    console.error('❌ CRITICAL: React Hooks not available when GameComponents.js loaded!');
+    throw new Error('React Hooks are required for GameComponents.js');
+}
+
+console.log('🚀 GameComponents.js loading... React version:', React.version);
 const { useState, useEffect, useMemo } = React;
 
 const sanitizeData = (data) => {
@@ -292,4 +304,22 @@ const QAGame = ({ data }) => {
     );
 };
 
+// Export components to window in multiple ways for maximum compatibility
+console.log('📤 Exporting GameComponents...', { MCQGame: !!MCQGame, TrueFalseGame: !!TrueFalseGame, FlashcardGame: !!FlashcardGame, FillBlankGame: !!FillBlankGame, QAGame: !!QAGame });
+
 window.GameComponents = { MCQGame, TrueFalseGame, FlashcardGame, FillBlankGame, QAGame };
+window.MCQGame = MCQGame;
+window.TrueFalseGame = TrueFalseGame;
+window.FlashcardGame = FlashcardGame;
+window.FillBlankGame = FillBlankGame;
+window.QAGame = QAGame;
+
+console.log('✅ GameComponents exported successfully!');
+console.log('✅ Available components:', Object.keys(window.GameComponents));
+console.log('✅ All components loaded:', {
+    MCQGame: !!window.GameComponents.MCQGame,
+    TrueFalseGame: !!window.GameComponents.TrueFalseGame,
+    FlashcardGame: !!window.GameComponents.FlashcardGame,
+    FillBlankGame: !!window.GameComponents.FillBlankGame,
+    QAGame: !!window.GameComponents.QAGame
+});
